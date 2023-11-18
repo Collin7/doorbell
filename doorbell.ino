@@ -83,6 +83,7 @@ void buttonPressHandler() {
 
 void doorbellButtonPressed() {
   //Logic here if doorbell pressed
+  client.publish("doorbell/pressed", "ding-dong", true);
   timer.restartTimer(noActivityTimer);
   buttonPressedSoundEffect();
   lcd.backlight();

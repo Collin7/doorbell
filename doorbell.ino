@@ -1,5 +1,3 @@
-//#include <NTPClient.h>
-//#include <WiFiUdp.h>
 #include <EasyButton.h>
 #include <Credentials.h>
 #include <ESP8266WiFi.h>
@@ -25,15 +23,11 @@ const char* residentsAwayTopic = "doorbell/residents/away";
 //Define Global Variables
 int pirValue;
 int pirStatus;
-String motionStatus;
 int noActivityTimer;
-long motionCooldown = 20000;  // 20 sec before PIR reads motion again
+long motionCooldown = 30000;  // 30 sec before PIR reads motion again
 long lastMotionTriggerTime = 0;
 
 bool residentsAway = false;
-
-String strTopic;
-String strPayload;
 
 const byte rowsLCD = 2;
 const byte columnsLCD = 16;
@@ -46,8 +40,6 @@ WiFiClient espDoorbellController;
 PubSubClient client(espDoorbellController);
 SimpleTimer timer;
 EasyButton doorbellButton(DOORBELL_BUTTON);
-//WiFiUDP ntpUDP;
-//NTPClient timeClient(ntpUDP, "za.pool.ntp.org", 7200, 60000);
 LiquidCrystal_I2C lcd(0x3F, columnsLCD, rowsLCD);
 
 void setup() {
@@ -87,7 +79,6 @@ void buttonPressHandler() {
 }
 
 void doorbellButtonPressed() {
-  //Logic here if doorbell pressed
   client.publish(doorbellPressedTopic, "ding-dong", false);
   timer.restartTimer(noActivityTimer);
   if (!residentsAway) {
@@ -103,13 +94,13 @@ void checkPirSensor() {
   pirValue = digitalRead(PIRPIN);
 
   if (pirValue == LOW && pirStatus != 1) {
-    motionStatus = "no motion";
+    // no motion
     pirStatus = 1;
 
   } else if (pirValue == HIGH && pirStatus != 2) {
     if (millis() - lastMotionTriggerTime >= motionCooldown) {
       lastMotionTriggerTime = millis();
-      motionStatus = "motion detected";
+      // motion detected
       if (residentsAway) {
         showAwayMessage();
       } else {
@@ -141,14 +132,11 @@ void subscribeMQTTTopics() {
 void callback(char* topic, byte* payload, unsigned int length) {
   //Handle mqtt messages received by this device
   payload[length] = '\0';
-  strTopic = String((char*)topic);
-  // Serial.println("Topic " + strTopic);
-  String command = String((char*)payload);
-  // Serial.println("Command " + command);
-  if (strTopic == restartTopic) {
+
+  if (strcmp(topic, restartTopic) == 0) {
     restartESP();
-  } else if (strTopic == residentsAwayTopic) {
-    residentsAway = parseBool(command);
+  } else if (strcmp(topic, residentsAwayTopic) == 0) {
+    residentsAway = parseBool((const char*)payload);
     if (residentsAway) {
       showAwayMessage();
     } else {
@@ -157,9 +145,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-bool parseBool(String value) {
-  value.toLowerCase();
-  return value.equals("true");
+bool parseBool(const char* value) {
+  char lowerCaseValue[strlen(value) + 1];  // Create a buffer for the lowercase string
+  strcpy(lowerCaseValue, value);           // Copy the original string to the buffer
+  strlwr(lowerCaseValue);                  // Convert the buffer to lowercase
+
+  return (strcmp(lowerCaseValue, "true") == 0);
 }
 
 void reconnect() {

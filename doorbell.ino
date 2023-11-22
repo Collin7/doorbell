@@ -32,6 +32,13 @@ bool residentsAway = false;
 const byte rowsLCD = 2;
 const byte columnsLCD = 16;
 
+const int flashDuration = 500;  // Time in milliseconds for each flash
+const int flashes = 4;          // Number of flashes
+bool flashLCD = false;
+unsigned long previousMillis = 0;
+int flashCount = 0;
+
+
 int successFailTone[] = { 261, 277, 294, 311, 330, 349, 370, 392, 415, 440 };
 int normalKeypressTone = 1760;
 
@@ -72,6 +79,38 @@ void loop() {
   ArduinoOTA.handle();
   buttonPressHandler();
   checkPirSensor();
+  flashLcdOnMotion();
+}
+
+void flashLcdOnMotion() {
+  unsigned long currentMillis = millis();
+
+  if (flashLCD) {
+
+    if (currentMillis - previousMillis >= flashDuration) {
+      previousMillis = currentMillis;
+
+      if (flashCount % 2 == 0) {
+        singleBeepSoundEffect();
+        lcd.backlight();
+      } else {
+        lcd.noBacklight();
+      }
+      // Increment the flash count
+      flashCount++;
+      // Check if the flashing sequence is complete
+      if (flashCount >= flashes * 2) {
+        // set flash to false
+        lcd.backlight();
+        flashLCD = false;
+        flashCount = 0;
+      }
+    }
+  }
+}
+
+void flashLCDOnMotionDetection() {
+  unsigned long currentMillis = millis();
 }
 
 void buttonPressHandler() {
@@ -79,6 +118,8 @@ void buttonPressHandler() {
 }
 
 void doorbellButtonPressed() {
+  lcd.backlight();  // in case button was pressed during the off flash state
+  flashLCD = false;
   client.publish(doorbellPressedTopic, "ding-dong", false);
   timer.restartTimer(noActivityTimer);
   if (!residentsAway) {
@@ -93,31 +134,23 @@ void doorbellButtonPressed() {
 void checkPirSensor() {
   pirValue = digitalRead(PIRPIN);
 
-  if (pirValue == LOW && pirStatus != 1) {
-    // no motion
-    pirStatus = 1;
-
-  } else if (pirValue == HIGH && pirStatus != 2) {
+  if (pirValue == HIGH && pirStatus != 2) {
+    //Motion detected
     if (millis() - lastMotionTriggerTime >= motionCooldown) {
+      pirStatus = 2;
+      flashLCD = true;
       lastMotionTriggerTime = millis();
-      // motion detected
       if (residentsAway) {
         showAwayMessage();
       } else {
         showWelcomeMessage();
       }
-      //sendState();
-      pirStatus = 2;
-      for (int i = 0; i <= 2; i++) {
-        singleBeepSoundEffect();
-        lcd.backlight();
-        delay(500);
-        lcd.noBacklight();
-        delay(500);
-        lcd.backlight();
-      }
     }
     timer.restartTimer(noActivityTimer);
+
+  } else if (pirValue == LOW && pirStatus != 1) {
+    // no motion
+    pirStatus = 1;
   }
 }
 

@@ -1,5 +1,6 @@
 #include <EasyButton.h>
 #include <Credentials.h>
+#include "MqttTopics.h"
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 #include <PubSubClient.h>
@@ -8,11 +9,6 @@
 #include <LiquidCrystal_I2C.h>
 
 const char* DEVICE_NAME = "Doorbell Controller";
-
-//Define MQTT Topics
-const char* doorbellPressedTopic = "doorbell/pressed";
-const char* restartTopic = "doorbell/restart";
-const char* residentsAwayTopic = "doorbell/residents/away";
 
 //Define Pins
 #define DOORBELL_BUTTON D5
